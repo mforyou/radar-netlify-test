@@ -1,11 +1,232 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pl">
 <head>
-    <meta charset="UTF-8">
-    <title>Radar Netlify Test</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Radar3000 ULTRA</title>
+  <!-- PapaParse do CSV -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    :root{--bg:#0f1216;--panel:#161b22;--soft:#202735;--text:#e6edf3;--muted:#9fb0c3;--good:#26d07c;--warn:#ffd166;--bad:#ff6b6b;--brand:#00e0a0}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 Inter,system-ui,Segoe UI,Roboto,Arial}
+    header{padding:20px 18px;border-bottom:1px solid #1d2430;background:linear-gradient(180deg,#0f1216,#0f121600)}
+    .title{display:flex;align-items:center;gap:12px;font-weight:800}
+    .badge{background:#142; color:#7fffca; border:1px solid #254; padding:2px 8px; border-radius:999px; font-size:12px}
+    .grid{max-width:1100px;margin:18px auto;padding:0 14px}
+    .filters{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:14px}
+    .card{background:var(--panel);border:1px solid #1c2432;border-radius:14px;padding:14px;margin:10px 0}
+    label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}
+    input,select{width:100%;background:#0f1520;border:1px solid #1e2736;border-radius:10px;padding:10px;color:var(--text);outline:none}
+    input::placeholder{color:#5f7189}
+    .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+    .h1{font-weight:700}
+    .muted{color:var(--muted)}
+    .pill{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:999px;border:1px solid #2a3344;background:#111826;font-size:12px;color:#b7c5d8}
+    .pill.good{border-color:#1f7; color:#9ff}
+    .bet{color:#0f0;background:#0a2;border-color:#184}
+    .bar{height:8px;background:#0e1420;border:1px solid #253044;border-radius:999px;overflow:hidden}
+    .fill{height:100%;background:linear-gradient(90deg,#23d3aa,#00b1ff)}
+    .row strong{font-weight:700}
+    .foot{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+    .hide{display:none}
+    .small{font-size:12px}
+  </style>
 </head>
 <body>
-    <h1>Działa! 🚀</h1>
-    <p>To jest pierwsza strona wrzucona na GitHub → Netlify.</p>
+  <header>
+    <div class="grid">
+      <div class="title">
+        <h1 style="margin:0">Radar3000 <span style="color:#7cffc4">ULTRA</span></h1>
+        <span class="badge">AI typy • live z Arkusza</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section class="card">
+      <div class="filters">
+        <div><label>Data (zawiera)</label><input id="f-date" placeholder="np. 2025-08-21"></div>
+        <div><label>Liga (zawiera)</label><input id="f-league" placeholder="np. NOR"></div>
+        <div><label>Min. prawd. (0–100%)</label><input id="f-minprob" type="number" min="0" max="100" step="1" value="65"></div>
+        <div><label>Min. EV</label><input id="f-minev" type="number" step="0.01" value="0.00"></div>
+        <div><label>Tylko „BET”</label>
+          <select id="f-bet"><option value="any">Dowolnie</option><option value="bet">Tylko BET</option></select>
+        </div>
+        <div><label>Sortuj wg</label>
+          <select id="f-sort">
+            <option value="prob">Prawdopodobieństwo ↓</option>
+            <option value="ev">EV ↓</option>
+            <option value="date">Data ↑</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <span class="muted small">Źródło CSV: <code id="csvSrc" class="small"></code></span>
+      </div>
+    </section>
+
+    <section id="list"></section>
+  </main>
+
+  <script>
+    // <<< PODMIEŃ TO NA LINK CSV Z "Opublikuj w internecie" >>>
+    const CSV_URL = "WSTAW_TUTAJ_PUBLICZNY_LINK_DO_CSV";
+
+    // —————————————————————— utils
+    const $ = sel => document.querySelector(sel);
+    const list = $('#list');
+    $('#csvSrc').textContent = CSV_URL || '(brak)';
+
+    const toNumber = (v) => {
+      if (v == null) return null;
+      let s = String(v).trim();
+      if (!s) return null;
+      // zamień przecinki na kropki, usuń % i zbędne znaki
+      s = s.replace(/\s/g,'').replace(',', '.');
+      s = s.replace(/[^0-9.+-]/g, match => (match === '.' || match === '-' || match === '+') ? match : '');
+      const n = parseFloat(s);
+      return isNaN(n) ? null : n;
+    };
+
+    const parseProb = (v) => {
+      // akceptuje "85%", "0.85", "0,85", "85"
+      if (v == null) return null;
+      const s = String(v).trim();
+      if (s.includes('%')) return toNumber(s);    // "85%" -> 85
+      const n = toNumber(s);
+      if (n == null) return null;
+      return n > 1.0001 ? n : n * 100;            // 0.85 -> 85
+    };
+
+    const parseOdds = (v) => {
+      // wyciąga pierwszą liczbę z "O2.5," itp.
+      if (!v) return null;
+      const m = String(v).replace(',', '.').match(/-?\d+(\.\d+)?/);
+      return m ? parseFloat(m[0]) : null;
+    };
+
+    const evVerdict = (txt) => {
+      if (!txt) return false;
+      return String(txt).toUpperCase().includes('BET');
+    };
+
+    const fmtPct = (p) => p==null ? '—' : (p.toFixed(0)+'%');
+    const clamp = (n,min,max)=>Math.max(min,Math.min(max,n));
+
+    // —————————————————————— render
+    const render = (rows) => {
+      list.innerHTML = '';
+      if (!rows.length) {
+        list.innerHTML = `<div class="card muted">Brak wyników. Zmień filtry.</div>`;
+        return;
+      }
+      rows.forEach(r => {
+        const p = r._prob;
+        const ev = r._evBet;
+        const bar = clamp(p||0,0,100);
+
+        const info = [
+          r.league ? `<span class="pill">Liga: <strong>${r.league}</strong></span>` : '',
+          r.typ ? `<span class="pill good">AI PICK: <strong>${r.typ}</strong></span>` : '',
+          r.odds ? `<span class="pill">Kurs: <strong>${r.odds}</strong></span>` : '',
+          r.conf ? `<span class="pill">Conf: <strong>${r.conf}</strong></span>` : '',
+        ].filter(Boolean).join(' ');
+
+        const sources = r.sources ? `<div class="small muted">Źródła: ${r.sources}</div>` : '';
+        const note = r.note ? `<div class="small muted">Notka: ${r.note}</div>` : '';
+
+        const evPill = ev ? `<span class="pill bet">BET</span>` : '';
+
+        const html = `
+          <article class="card">
+            <div class="row" style="justify-content:space-between">
+              <div>
+                <div class="h1">${(r.home||'—')} — ${(r.away||'—')}</div>
+                <div class="muted small">${r.date||''}</div>
+              </div>
+              <div class="row" style="gap:8px">${evPill}</div>
+            </div>
+
+            <div class="row" style="gap:16px;margin:12px 0">${info}</div>
+
+            <div class="row" style="gap:14px;align-items:center">
+              <div style="min-width:120px">Prawd.: <strong>${fmtPct(p||0)}</strong></div>
+              <div class="bar" style="flex:1"><div class="fill" style="width:${bar}%"></div></div>
+            </div>
+
+            <div class="foot">${sources}${note}</div>
+          </article>
+        `;
+        list.insertAdjacentHTML('beforeend', html);
+      });
+    };
+
+    // —————————————————————— filtracja/sort
+    const applyFilters = (all) => {
+      const qDate   = $('#f-date').value.trim().toLowerCase();
+      const qLeague = $('#f-league').value.trim().toLowerCase();
+      const minProb = toNumber($('#f-minprob').value) ?? 0;
+      const minEv   = parseFloat($('#f-minev').value || '0');
+      const onlyBet = $('#f-bet').value === 'bet';
+      const sortBy  = $('#f-sort').value;
+
+      let rows = all.filter(r => {
+        if (qDate && !(String(r.date||'').toLowerCase().includes(qDate))) return false;
+        if (qLeague && !(String(r.league||'').toLowerCase().includes(qLeague))) return false;
+        if ((r._prob ?? -1) < minProb) return false;
+        if ((r._ev ?? 0) < minEv) return false;
+        if (onlyBet && !r._evBet) return false;
+        return true;
+      });
+
+      if (sortBy === 'prob') rows.sort((a,b)=>(b._prob||0)-(a._prob||0));
+      else if (sortBy === 'ev') rows.sort((a,b)=>(b._ev||0)-(a._ev||0));
+      else if (sortBy === 'date') rows.sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')));
+
+      render(rows);
+    };
+
+    // —————————————————————— ładowanie CSV
+    let ALL_ROWS = [];
+    const load = () => {
+      if (!CSV_URL || CSV_URL.includes('WSTAW_TUTAJ')) {
+        list.innerHTML = `<div class="card">Podmień w kodzie stałą <code>CSV_URL</code> na opublikowany link CSV z Arkusza.</div>`;
+        return;
+      }
+      Papa.parse(CSV_URL, {
+        download: true,
+        header: true,
+        dynamicTyping: false,
+        complete: (res) => {
+          const rows = res.data
+            .filter(r => Object.values(r).some(v => String(v||'').trim()!==''))
+            .map(r => {
+              const prob = parseProb(r.prob);
+              const odds = parseOdds(r.odds);
+              const ev   = toNumber(r.conf); // jeśli masz prawdziwe EV w innej kolumnie, podmień tutaj
+              return {
+                ...r,
+                _prob: prob,
+                _odds: odds,
+                _ev: ev ?? 0,
+                _evBet: evVerdict(r.ev)
+              };
+            });
+          ALL_ROWS = rows;
+          applyFilters(ALL_ROWS);
+        },
+        error: (e) => {
+          list.innerHTML = `<div class="card">Błąd pobierania CSV: ${e?.message||e}</div>`;
+        }
+      });
+    };
+
+    // eventy filtrów
+    ['#f-date','#f-league','#f-minprob','#f-minev','#f-bet','#f-sort']
+      .forEach(sel => $(sel).addEventListener('input', () => applyFilters(ALL_ROWS)));
+
+    load();
+  </script>
 </body>
-</html>  
+</html>
+
