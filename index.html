@@ -226,7 +226,45 @@
       .forEach(sel => $(sel).addEventListener('input', () => applyFilters(ALL_ROWS)));
 
     load();
-  </script>
+<script>
+const CSV_URL = "https://docs.google.com/spreadsheets/d/1CmmoU0tYRqAVBUssGcdmaWFyg3eFcVkmEzDY8idFQStw/export?format=csv&gid=0";
+
+function load() {
+    Papa.parse(CSV_URL, {
+        download: true,
+        header: true,
+        complete: (results) => {
+            const rows = results.data.map(r => {
+                const prob = parseProb(r.prob);
+                const odds = parseOdds(r.odds);
+                const ev = toNumber(r.conf); // jeśli masz prawdziwe EV w innej kolumnie, podmień tutaj
+                return {
+                    ...r,
+                    _prob: prob,
+                    _odds: odds,
+                    _ev: ev ?? 0,
+                    _evBet: evVerdict(r.ev)
+                };
+            });
+
+            ALL_ROWS = rows;
+            applyFilters(ALL_ROWS);
+        },
+        error: (e) => {
+            list.innerHTML = `<div class="card">Błąd pobierania CSV: ${e.message || e}</div>`;
+        }
+    });
+}
+
+// eventy filtrów
+['#f-date','#f-league','#f-minprob','#f-minev','#f-bet','#f-sort']
+    .forEach(sel => $(sel).addEventListener('input', () => applyFilters(ALL_ROWS)));
+
+load();
+</script>
+</body>
+</html>
+
 </body>
 </html>
 
