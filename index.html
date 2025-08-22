@@ -5,86 +5,65 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ArkoRadar 3000</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #111;
-      color: #eee;
-      text-align: center;
-      padding: 20px;
-    }
-    h1 { color: #4cafef; }
-    table {
-      margin: 20px auto;
-      border-collapse: collapse;
-      width: 90%;
-      max-width: 1000px;
-      background: #222;
-    }
-    th, td {
-      border: 1px solid #444;
-      padding: 8px;
-    }
-    th {
-      background: #333;
-      color: #4cafef;
-    }
-    tr:nth-child(even) {
-      background: #1a1a1a;
-    }
-    .error { color: red; margin-top: 15px; }
+    body {background:#0f0f0f; color:#eee; font-family:Arial, sans-serif; text-align:center; padding:20px;}
+    h1 {color:#0ff;}
+    table {margin:20px auto; border-collapse:collapse; width:90%; max-width:1000px;}
+    th, td {border:1px solid #444; padding:8px; text-align:center;}
+    th {background:#222;}
+    tr:nth-child(even) {background:#1a1a1a;}
+    .error {color:#f66; margin:20px;}
   </style>
 </head>
 <body>
   <h1>ArkoRadar 3000</h1>
-  <p>Typ dnia — dane z Arkusza Google (CSV)</p>
-
+  <h3>Typ dnia — dane z Arkusza Google (CSV)</h3>
   <div id="error" class="error"></div>
-  <table id="dataTable">
+  <table id="data-table">
     <thead>
       <tr>
-        <th>Data</th>
-        <th>Liga</th>
-        <th>Home</th>
-        <th>Away</th>
-        <th>Typ</th>
-        <th>Prob</th>
-        <th>Status</th>
+        <th>date</th>
+        <th>league</th>
+        <th>home</th>
+        <th>away</th>
+        <th>typ</th>
+        <th>prob</th>
+        <th>status</th>
       </tr>
     </thead>
     <tbody></tbody>
   </table>
 
   <script>
-    // <<< WAŻNE: PODMIANA LINKU TUTAJ >>>
-    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQkw5qg7HlUQVTI_yz_nkuR9ZITcUneNH-nZa7YMFeeKBY-R8jpr2eoeCxK9_ci45e4C58qykmu9qLW/pub?gid=1844560790&single=true&output=csv";
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQkw5qg7HIUQVTl_yz_nkuR9ZITcUneNH-nZa7YMFeeKBY-R8jpr2eoeCxK9_ci45e4C58qykmu9qLW/pub?gid=1844560790&single=true&output=csv";
 
     async function loadCSV() {
       try {
         const res = await fetch(CSV_URL);
-        if (!res.ok) throw new Error("HTTP " + res.status);
+        if (!res.ok) throw new Error("Błąd pobierania CSV: " + res.status);
         const text = await res.text();
-
-        const rows = text.trim().split("\n").map(r => r.split(","));
-        const tbody = document.querySelector("#dataTable tbody");
-        tbody.innerHTML = "";
-
-        rows.slice(1).forEach(r => {
-          const tr = document.createElement("tr");
-          r.forEach(cell => {
-            const td = document.createElement("td");
-            td.textContent = cell.replace(/^"|"$/g, ""); // usuń cudzysłowy
-            tr.appendChild(td);
-          });
-          tbody.appendChild(tr);
-        });
+        renderTable(text);
       } catch (err) {
-        document.getElementById("error").textContent =
-          "Błąd pobierania CSV: " + err.message;
+        document.getElementById("error").textContent = err.message;
       }
     }
 
+    function renderTable(csvText) {
+      const rows = csvText.trim().split("\n").map(r => r.split(","));
+      const tbody = document.querySelector("#data-table tbody");
+      tbody.innerHTML = "";
+      rows.slice(1).forEach(row => {
+        const tr = document.createElement("tr");
+        row.forEach(cell => {
+          const td = document.createElement("td");
+          td.textContent = cell.replace(/"/g, "");
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+    }
+
     loadCSV();
-    // auto-refresh co 5 minut
+    // Auto-odświeżanie co 5 minut
     setInterval(loadCSV, 5 * 60 * 1000);
   </script>
 </body>
