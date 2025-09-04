@@ -1,70 +1,76 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8" />
   <title>ArkoRadar 3000</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body {background:#0f0f0f; color:#eee; font-family:Arial, sans-serif; text-align:center; padding:20px;}
-    h1 {color:#0ff;}
-    table {margin:20px auto; border-collapse:collapse; width:90%; max-width:1000px;}
-    th, td {border:1px solid #444; padding:8px; text-align:center;}
-    th {background:#222;}
-    tr:nth-child(even) {background:#1a1a1a;}
-    .error {color:#f66; margin:20px;}
+    body{background:#1b1e22;color:#e6edf3;font-family:system-ui,Segoe UI,Roboto,Arial}
+    h1{color:#76e1ff;margin:16px 0 4px}
+    .muted{color:#9aa4af;margin:0 0 16px}
+    table{border-collapse:collapse;width:100%;max-width:1100px;margin:0 auto}
+    th,td{border:1px solid #2b3036;padding:8px 10px;text-align:left}
+    th{background:#242931;position:sticky;top:0}
+    tr:nth-child(even){background:#1f2329}
+    .chip{padding:2px 8px;border-radius:999px;font-weight:600}
+    .chip.top{background:#2d5032;color:#a7f3ad}
+    .chip.ok{background:#3a2f14;color:#ffd08a}
   </style>
 </head>
 <body>
-  <h1>ArkoRadar 3000</h1>
-  <h3>Typ dnia — dane z Arkusza Google (CSV)</h3>
-  <div id="error" class="error"></div>
-  <table id="data-table">
-    <thead>
-      <tr>
-        <th>date</th>
-        <th>league</th>
-        <th>home</th>
-        <th>away</th>
-        <th>typ</th>
-        <th>prob</th>
-        <th>status</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+  <div style="max-width:1100px;margin:24px auto">
+    <h1>ArkoRadar 3000</h1>
+    <p class="muted">Typ dnia — dane z Arkusza Google (JSON)</p>
+    <p id="msg" class="muted"></p>
+    <table id="tbl">
+      <thead>
+        <tr>
+          <th>date</th><th>league</th><th>home</th><th>away</th>
+          <th>typ</th><th>prob</th><th>status</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
 
   <script>
-    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQkw5qg7HIUQVTl_yz_nkuR9ZITcUneNH-nZa7YMFeeKBY-R8jpr2eoeCxK9_ci45e4C58qykmu9qLW/pub?gid=1844560790&single=true&output=csv";
+    const API_URL = "YOUR_API_URL_HERE"; // ⬅️ wklej tu swój adres z Apps Script
 
-    async function loadCSV() {
+    async function load() {
+      const msg = document.getElementById('msg');
+      const tbody = document.querySelector('#tbl tbody');
+      msg.textContent = "Ładuję…";
       try {
-        const res = await fetch(CSV_URL);
-        if (!res.ok) throw new Error("Błąd pobierania CSV: " + res.status);
-        const text = await res.text();
-        renderTable(text);
-      } catch (err) {
-        document.getElementById("error").textContent = err.message;
+        const res = await fetch(API_URL, { cache: "no-store" });
+        if (!res.ok) throw new Error(res.status + " " + res.statusText);
+        const data = await res.json(); // [{date, league, home, away, typ, prob, status}]
+        tbody.innerHTML = "";
+        if (!data.length) { msg.textContent = "Brak danych."; return; }
+        data.sort((a,b) => (b.prob ?? 0) - (a.prob ?? 0)); // sort po prob
+        for (const r of data) {
+          const tr = document.createElement('tr');
+          const prob = (typeof r.prob === "number") ? (r.prob*100).toFixed(0)+"%" : "";
+          const typHtml = (r.typ||"").toUpperCase()==="TOP"
+            ? `<span class="chip top">TOP</span>`
+            : (r.typ ? `<span class="chip ok">${r.typ}</span>` : "");
+          tr.innerHTML = `
+            <td>${r.date ?? ""}</td>
+            <td>${r.league ?? ""}</td>
+            <td>${r.home ?? ""}</td>
+            <td>${r.away ?? ""}</td>
+            <td>${typHtml}</td>
+            <td>${prob}</td>
+            <td>${r.status ?? ""}</td>`;
+          tbody.appendChild(tr);
+        }
+        msg.textContent = `Załadowano ${data.length} wiersze.`;
+      } catch (e) {
+        msg.textContent = "Błąd pobierania: " + e.message;
       }
     }
 
-    function renderTable(csvText) {
-      const rows = csvText.trim().split("\n").map(r => r.split(","));
-      const tbody = document.querySelector("#data-table tbody");
-      tbody.innerHTML = "";
-      rows.slice(1).forEach(row => {
-        const tr = document.createElement("tr");
-        row.forEach(cell => {
-          const td = document.createElement("td");
-          td.textContent = cell.replace(/"/g, "");
-          tr.appendChild(td);
-        });
-        tbody.appendChild(tr);
-      });
-    }
-
-    loadCSV();
-    // Auto-odświeżanie co 5 minut
-    setInterval(loadCSV, 5 * 60 * 1000);
+    load();
+    setInterval(load, 60000); // odśwież co 60 s
   </script>
 </body>
 </html>
