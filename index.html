@@ -24,55 +24,80 @@
       padding: 8px;
     }
     th {
-      background-color: #222;
-      color: #00ffcc;
+      background: #222;
+      color: #0ff;
     }
     tr:nth-child(even) {
-      background-color: #1a1a1a;
+      background: #1a1a1a;
+    }
+    .update-time {
+      margin-top: 15px;
+      font-size: 0.9em;
+      color: #aaa;
     }
   </style>
 </head>
 <body>
   <h1>ArkoRadar 3000</h1>
   <h3>Typ dnia — dane z Arkusza Google</h3>
-  <div id="table-container">Ładowanie danych...</div>
+  <table id="data-table">
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>League</th>
+        <th>Home</th>
+        <th>Away</th>
+        <th>Typ</th>
+        <th>Prob</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <div class="update-time" id="update-time"></div>
 
   <script>
+    // WSTAW TUTAJ SWÓJ PRAWIDŁOWY URL WEB APP (z Google Apps Script)
     const API_URL = "https://script.google.com/macros/s/AKfycbwHU60bW17VNJCINogWnNJj8UgnCOycHq9LsIhLQqoWG3D4XVzR3iGN2GSw3J82OKecFA/exec";
 
     async function loadData() {
       try {
-        const response = await fetch(API_URL);
-        const data = await response.json();
-
-        if (!data || data.length === 0) {
-          document.getElementById("table-container").innerHTML = "<p>Brak danych do wyświetlenia.</p>";
-          return;
-        }
-
-        let table = "<table><tr><th>Data</th><th>League</th><th>Home</th><th>Away</th><th>Typ</th><th>Prob</th><th>Status</th></tr>";
-
-        data.forEach(row => {
-          table += `<tr>
-            <td>${row.date || ""}</td>
-            <td>${row.league || ""}</td>
-            <td>${row.home || ""}</td>
-            <td>${row.away || ""}</td>
-            <td>${row.typ || ""}</td>
-            <td>${row.prob || ""}</td>
-            <td>${row.status || ""}</td>
-          </tr>`;
+        const url = API_URL + "?t=" + Date.now(); // zapobiega cache
+        const res = await fetch(url, {
+          cache: "no-store",
+          headers: { "cache-control": "no-cache" }
         });
-
-        table += "</table>";
-        document.getElementById("table-container").innerHTML = table;
-      } catch (error) {
-        document.getElementById("table-container").innerHTML = "<p style='color:red'>Błąd pobierania danych</p>";
-        console.error(error);
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        renderTable(data);
+        document.getElementById("update-time").innerText =
+          "Ostatnia aktualizacja: " + new Date().toLocaleString();
+      } catch (err) {
+        console.error("Błąd ładowania:", err);
       }
     }
 
+    function renderTable(data) {
+      const tbody = document.querySelector("#data-table tbody");
+      tbody.innerHTML = "";
+      data.forEach(row => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${row.date || ""}</td>
+          <td>${row.league || ""}</td>
+          <td>${row.home || ""}</td>
+          <td>${row.away || ""}</td>
+          <td>${row.typ || ""}</td>
+          <td>${row.prob || ""}</td>
+          <td>${row.status || ""}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Pierwsze ładowanie + auto-odświeżanie co 60 sekund
     loadData();
+    setInterval(loadData, 60000);
   </script>
 </body>
 </html>
