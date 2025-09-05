@@ -1,76 +1,79 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8">
   <title>ArkoRadar 3000</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body{background:#1b1e22;color:#e6edf3;font-family:system-ui,Segoe UI,Roboto,Arial}
-    h1{color:#76e1ff;margin:16px 0 4px}
-    .muted{color:#9aa4af;margin:0 0 16px}
-    table{border-collapse:collapse;width:100%;max-width:1100px;margin:0 auto}
-    th,td{border:1px solid #2b3036;padding:8px 10px;text-align:left}
-    th{background:#242931;position:sticky;top:0}
-    tr:nth-child(even){background:#1f2329}
-    .chip{padding:2px 8px;border-radius:999px;font-weight:600}
-    .chip.top{background:#2d5032;color:#a7f3ad}
-    .chip.ok{background:#3a2f14;color:#ffd08a}
+    body {
+      background-color: #111;
+      color: #eee;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    h1 {
+      color: #00ffcc;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #333;
+      padding: 8px;
+    }
+    th {
+      background-color: #222;
+      color: #00ffcc;
+    }
+    tr:nth-child(even) {
+      background-color: #1a1a1a;
+    }
   </style>
 </head>
 <body>
-  <div style="max-width:1100px;margin:24px auto">
-    <h1>ArkoRadar 3000</h1>
-    <p class="muted">Typ dnia — dane z Arkusza Google (JSON)</p>
-    <p id="msg" class="muted"></p>
-    <table id="tbl">
-      <thead>
-        <tr>
-          <th>date</th><th>league</th><th>home</th><th>away</th>
-          <th>typ</th><th>prob</th><th>status</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
+  <h1>ArkoRadar 3000</h1>
+  <h3>Typ dnia — dane z Arkusza Google</h3>
+  <div id="table-container">Ładowanie danych...</div>
 
   <script>
-    const API_URL = "YOUR_API_URL_HERE"; // ⬅️ wklej tu swój adres z Apps Script
+    const API_URL = "https://script.google.com/macros/s/AKfycbwHU60bW17VNJCINogWnNJj8UgnCOycHq9LsIhLQqoWG3D4XVzR3iGN2GSw3J82OKecFA/exec";
 
-    async function load() {
-      const msg = document.getElementById('msg');
-      const tbody = document.querySelector('#tbl tbody');
-      msg.textContent = "Ładuję…";
+    async function loadData() {
       try {
-        const res = await fetch(API_URL, { cache: "no-store" });
-        if (!res.ok) throw new Error(res.status + " " + res.statusText);
-        const data = await res.json(); // [{date, league, home, away, typ, prob, status}]
-        tbody.innerHTML = "";
-        if (!data.length) { msg.textContent = "Brak danych."; return; }
-        data.sort((a,b) => (b.prob ?? 0) - (a.prob ?? 0)); // sort po prob
-        for (const r of data) {
-          const tr = document.createElement('tr');
-          const prob = (typeof r.prob === "number") ? (r.prob*100).toFixed(0)+"%" : "";
-          const typHtml = (r.typ||"").toUpperCase()==="TOP"
-            ? `<span class="chip top">TOP</span>`
-            : (r.typ ? `<span class="chip ok">${r.typ}</span>` : "");
-          tr.innerHTML = `
-            <td>${r.date ?? ""}</td>
-            <td>${r.league ?? ""}</td>
-            <td>${r.home ?? ""}</td>
-            <td>${r.away ?? ""}</td>
-            <td>${typHtml}</td>
-            <td>${prob}</td>
-            <td>${r.status ?? ""}</td>`;
-          tbody.appendChild(tr);
+        const response = await fetch(API_URL);
+        const data = await response.json();
+
+        if (!data || data.length === 0) {
+          document.getElementById("table-container").innerHTML = "<p>Brak danych do wyświetlenia.</p>";
+          return;
         }
-        msg.textContent = `Załadowano ${data.length} wiersze.`;
-      } catch (e) {
-        msg.textContent = "Błąd pobierania: " + e.message;
+
+        let table = "<table><tr><th>Data</th><th>League</th><th>Home</th><th>Away</th><th>Typ</th><th>Prob</th><th>Status</th></tr>";
+
+        data.forEach(row => {
+          table += `<tr>
+            <td>${row.date || ""}</td>
+            <td>${row.league || ""}</td>
+            <td>${row.home || ""}</td>
+            <td>${row.away || ""}</td>
+            <td>${row.typ || ""}</td>
+            <td>${row.prob || ""}</td>
+            <td>${row.status || ""}</td>
+          </tr>`;
+        });
+
+        table += "</table>";
+        document.getElementById("table-container").innerHTML = table;
+      } catch (error) {
+        document.getElementById("table-container").innerHTML = "<p style='color:red'>Błąd pobierania danych</p>";
+        console.error(error);
       }
     }
 
-    load();
-    setInterval(load, 60000); // odśwież co 60 s
+    loadData();
   </script>
 </body>
 </html>
+
