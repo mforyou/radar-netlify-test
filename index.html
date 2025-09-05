@@ -1,135 +1,56 @@
-https://script.google.com/macros/s/AKfycby02EX_slPu8eQ33qviWXEozVr9WRTAefpZ3yJPTnW_elPYFjwo4n1EbY1LVdqgDrLVPg/exec<!DOCTYPE html>
-<html lang="pl">
-<head>
-  <meta charset="UTF-8" />
-  <title>ArkoRadar 3000 ULTRA</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    :root{
-      --bg:#0e0f13; --panel:#161922; --muted:#7d8aa3; --text:#e6edf3; --accent:#00ffcc;
-      --border:#222738; --good:#19c37d; --warn:#f5a524;
-    }
-    *{box-sizing:border-box}
-    body{margin:0; font:14px/1.4 Inter,system-ui,Segoe UI,Arial; background:var(--bg); color:var(--text);}
-    header{padding:22px 16px; border-bottom:1px solid var(--border); display:flex; gap:16px; align-items:center; justify-content:space-between}
-    h1{margin:0; font-size:22px; color:var(--accent); letter-spacing:.3px}
-    .actions{display:flex; gap:10px; align-items:center}
-    button{
-      background:var(--panel); color:var(--text); border:1px solid var(--border);
-      padding:8px 12px; border-radius:10px; cursor:pointer;
-    }
-    button:hover{border-color:var(--accent)}
-    .wrap{max-width:1100px; margin:18px auto; padding:0 12px}
-    .time{color:var(--muted); font-size:12px; margin-bottom:10px}
-    table{width:100%; border-collapse:collapse; background:var(--panel); border:1px solid var(--border); border-radius:14px; overflow:hidden}
-    th,td{padding:10px 12px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap}
-    th{color:var(--muted); font-weight:600; background:#141824}
-    tr:hover td{background:#141824}
-    .pill{display:inline-block; padding:3px 8px; border-radius:999px; font-size:12px; border:1px solid var(--border)}
-    .pill.top{background:rgba(25,195,125,.15); border-color:rgba(25,195,125,.4); color:#b7f8d3;}
-    .pill.ok{background:rgba(0,255,204,.08); border-color:rgba(0,255,204,.35); color:#b2fff0;}
-    .prob{font-variant-numeric:tabular-nums}
-    .empty{color:var(--muted); text-align:center; padding:30px 10px}
-    .error{color:#ff6b6b; margin:12px 0}
-    footer{color:var(--muted); font-size:12px; text-align:center; padding:18px 0 28px}
-  </style>
-</head>
-<body>
-  <header>
-    <h1>ArkoRadar 3000 ULTRA</h1>
-    <div class="actions">
-      <span class="time" id="update-time">—</span>
-      <button id="refresh">Odśwież</button>
-    </div>
-  </header>
+<script>
+// 👉 WSTAWIONY NOWY URL API
+const API_URL = "https://script.google.com/macros/s/AKfycbw4EJ-biMC9xazHefmhkBB0sdSuAm4hyIO_Q0blUu6X_3ZocOV9wX1JYbjiVGbqfgrquA/exec";
 
-  <div class="wrap">
-    <div id="error" class="error" style="display:none;"></div>
-    <table id="table">
-      <thead>
-        <tr>
-          <th>Data</th>
-          <th>League</th>
-          <th>Home</th>
-          <th>Away</th>
-          <th>Typ</th>
-          <th>Prob</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody id="tbody">
-        <tr><td class="empty" colspan="7">Brak danych…</td></tr>
-      </tbody>
-    </table>
-    <footer>© ArkoRadar</footer>
-  </div>
+// Pobieranie danych
+async function fetchData() {
+  try {
+    const url = API_URL + "?_=" + Date.now(); // anty-cache
+    const res = await fetch(url, {
+      cache: "no-store",
+      headers: { "cache-control": "no-cache" }
+    });
 
-  <script>
-    // Twój opublikowany Web App URL z Apps Script:
-    const API_URL = "https://script.google.com/macros/s/AKfycby02EX_slPu8eQ33qviWXEozVr9WRTAefpZ3yJPTnW_elPYFjwo4n1EbY1LVdqgDrLVPg/exec";
+    if (!res.ok) throw new Error("HTTP " + res.status);
 
-    async function fetchData() {
-      const url = API_URL + (API_URL.includes('?') ? '&' : '?') + '_=' + Date.now(); // anty-cache
-      const res = await fetch(url, {cache:'no-store', headers:{'cache-control':'no-cache'}});
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return await res.json();
-    }
+    const data = await res.json();
+    renderTable(data);
 
-    function fmtDate(v){
-      if (!v) return '';
-      if (String(v).includes('T')) return String(v).replace('T',' ').replace('Z','');
-      return String(v);
-    }
-    function fmtProb(p){
-      const n = typeof p==='number' ? p : parseFloat(String(p).replace(',','.'));
-      if (isNaN(n)) return '';
-      return n.toFixed(2);
-    }
-    function pill(typ){
-      const t = String(typ||'').trim().toUpperCase();
-      if (t === 'TOP') return `<span class="pill top">TOP</span>`;
-      if (t) return `<span class="pill ok">${t}</span>`;
-      return '';
-    }
+    document.getElementById("update-time").innerText =
+      "Ostatnia aktualizacja: " + new Date().toLocaleString();
 
-    function render(data){
-      const tb = document.getElementById('tbody');
-      tb.innerHTML = '';
-      if (!data || !data.length){
-        tb.innerHTML = `<tr><td class="empty" colspan="7">Brak danych…</td></tr>`;
-        return;
-      }
-      const rowsHtml = data.map(r => `
-        <tr>
-          <td>${fmtDate(r.date)}</td>
-          <td>${r.league ?? ''}</td>
-          <td>${r.home ?? ''}</td>
-          <td>${r.away ?? ''}</td>
-          <td>${pill(r.typ)}</td>
-          <td class="prob">${fmtProb(r.prob)}</td>
-          <td>${fmtDate(r.status)}</td>
-        </tr>
-      `).join('');
-      tb.innerHTML = rowsHtml;
-    }
+  } catch (error) {
+    console.error(error);
+    document.getElementById("data-table").innerHTML =
+      `<tr><td colspan="7" style="color:red">Błąd pobierania danych: ${error.message}</td></tr>`;
+  }
+}
 
-    async function load(){
-      const err = document.getElementById('error');
-      err.style.display = 'none'; err.textContent = '';
-      try{
-        const data = await fetchData();
-        render(data);
-        document.getElementById('update-time').textContent =
-          'Ostatnia aktualizacja: ' + new Date().toLocaleString();
-      }catch(e){
-        err.style.display = 'block';
-        err.textContent = 'Błąd pobierania danych: ' + e.message;
-      }
-    }
+// Rysowanie tabeli
+function renderTable(data) {
+  const table = document.getElementById("data-table");
+  table.innerHTML = "";
 
-    document.getElementById('refresh').addEventListener('click', load);
-    load();
-  </script>
-</body>
-</html>
+  if (!data || data.length === 0) {
+    table.innerHTML = `<tr><td colspan="7">Brak danych...</td></tr>`;
+    return;
+  }
 
+  data.forEach(row => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${row.date || ""}</td>
+      <td>${row.league || ""}</td>
+      <td>${row.home || ""}</td>
+      <td>${row.away || ""}</td>
+      <td>${row.typ || ""}</td>
+      <td>${row.prob || ""}</td>
+      <td>${row.status || ""}</td>
+    `;
+    table.appendChild(tr);
+  });
+}
+
+// Start
+window.onload = fetchData;
+</script>
