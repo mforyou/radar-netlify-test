@@ -1,25 +1,131 @@
-<script>
-async function loadData() {
-  try {
-    $status.textContent = "Ładowanie…";
-
-    // cache-busting, aby zawsze pobierać świeże dane
-    const url = API_URL + (API_URL.includes("?") ? "&" : "?") + "_=" + Date.now();
-
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-
-    const data = await res.json();
-    renderTable(data);
-
-    $time.textContent = "Ostatnia aktualizacja: " + new Date().toLocaleString("pl-PL");
-    $status.textContent = "";
-  } catch (err) {
-    console.error(err);
-    $status.innerHTML = `<span class="error">Błąd pobierania danych: ${err.message}</span>`;
-    if (!$body.querySelector("tr")) {
-      $body.innerHTML = `<tr><td class="empty" colspan="7">Brak danych.</td></tr>`;
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ArkoRadar 3000 ULTRA</title>
+  <style>
+    :root{
+      --bg:#111; --card:#1b1b1b; --text:#e8e8e8; --muted:#9aa0a6;
+      --accent:#00ff66; --warn:#ff5555; --link:#66a3ff; --line:#2b2b2b;
     }
-  }
-}
-</script>
+    html,body{margin:0; padding:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    .wrap{max-width:1100px; margin:28px auto; padding:0 16px}
+    h1{margin:0 0 8px; font-size:32px; color:var(--accent); letter-spacing:.5px}
+    .status{min-height:22px; margin:6px 0 14px; font-weight:600}
+    .status .error{color:var(--warn)}
+    .status .ok{color:#6ee7b7}
+    .updated{font-size:12px; color:var(--muted); margin-bottom:14px}
+    .card{background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden}
+    table{width:100%; border-collapse:collapse}
+    th,td{padding:12px 14px; text-align:left}
+    thead th{color:#c7d2fe; background:#121212; border-bottom:1px solid var(--line); font-weight:700}
+    tbody tr{border-bottom:1px solid var(--line)}
+    tbody tr:hover{background:#161616}
+    td.empty{color:var(--muted); text-align:center; padding:28px}
+    a{color:var(--link); text-decoration:none}
+    .foot{color:var(--muted); font-size:12px; margin-top:14px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>ArkoRadar 3000 ULTRA</h1>
+
+    <div id="status" class="status"></div>
+    <div id="updated" class="updated"></div>
+
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>League</th>
+            <th>Home</th>
+            <th>Away</th>
+            <th>Typ</th>
+            <th>Prob</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td class="empty" colspan="7">Ładowanie…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="foot">© ArkoRadar</div>
+  </div>
+
+  <script>
+    // ⬇⬇⬇ PODMIEŃ TYLKO TĘ LINIĘ NA SWÓJ DZIAŁAJĄCY URL GAS (ten, który wyświetla JSON w przeglądarce)
+    const API_URL = "YOUR_API_URL_HERE";
+
+    const $status  = document.getElementById("status");
+    const $updated = document.getElementById("updated");
+    const $tbody   = document.getElementById("tbody");
+
+    function fmtDate(v){
+      if(!v) return "";
+      try{
+        // akceptujemy ISO, „2025-0905” i inne — po prostu pokazujemy jak jest
+        const d = new Date(v);
+        if(!isNaN(d)) return d.toLocaleString("pl-PL",{hour12:false});
+        return String(v);
+      }catch(_){ return String(v) }
+    }
+    function fmtProb(p){
+      if(p==null) return "";
+      const n = Number(p);
+      if(isNaN(n)) return String(p);
+      return (n>1? n : n*100).toFixed( (n>1)? 0 : 0 ) + (n>1? "" : "%");
+    }
+
+    function renderTable(rows){
+      if(!Array.isArray(rows) || rows.length===0){
+        $tbody.innerHTML = `<tr><td class="empty" colspan="7">Brak danych…</td></tr>`;
+        return;
+      }
+      $tbody.innerHTML = rows.map(r=>`
+        <tr>
+          <td>${fmtDate(r.date)}</td>
+          <td>${r.league ?? ""}</td>
+          <td>${r.home ?? ""}</td>
+          <td>${r.away ?? ""}</td>
+          <td>${r.typ ?? ""}</td>
+          <td>${fmtProb(r.prob)}</td>
+          <td>${fmtDate(r.status)}</td>
+        </tr>
+      `).join("");
+    }
+
+    async function loadData(){
+      try{
+        $status.textContent = "Ładowanie…";
+
+        // cache-bust, żeby CDN / przeglądarka nie trzymały starego JSON-a
+        const url = API_URL + (API_URL.includes("?") ? "&" : "?") + "_=" + Date.now();
+
+        const res = await fetch(url, { cache:"no-store" });
+        if(!res.ok) throw new Error("HTTP " + res.status);
+
+        const data = await res.json();
+        renderTable(data);
+
+        $updated.textContent = "Ostatnia aktualizacja: " + new Date().toLocaleString("pl-PL",{hour12:false});
+        $status.innerHTML = `<span class="ok">OK</span>`;
+      }catch(err){
+        console.error(err);
+        $status.innerHTML = `<span class="error">Błąd pobierania danych: ${err.message}</span>`;
+        if(!$tbody.querySelector("tr")){
+          $tbody.innerHTML = `<tr><td class="empty" colspan="7">Brak danych…</td></tr>`;
+        }
+      }
+    }
+
+    // start
+    loadData();
+    // auto-refresh co 5 min (możesz zmienić)
+    setInterval(loadData, 5*60*1000);
+  </script>
+</body>
+</html>
