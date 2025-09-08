@@ -1,134 +1,25 @@
-<!doctype html>
-<html lang="pl">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ArkoRadar 3000 ULTRA</title>
-  <style>
-    :root { --bg:#111; --fg:#eaeaea; --muted:#9aa0a6; --accent:#00ff66; --line:#2a2a2a; }
-    html,body { margin:0; padding:0; background:var(--bg); color:var(--fg); font:15px/1.5 system-ui, Arial, sans-serif; }
-    .wrap { max-width:1100px; margin:32px auto; padding:0 16px; }
-    h1 { margin:0 0 6px; color:var(--accent); font-weight:800; letter-spacing:.3px; }
-    .topbar { display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
-    .meta { color:var(--muted); font-size:.9rem; }
-    .btn { background:#1f1f1f; border:1px solid var(--line); color:var(--fg); padding:8px 12px; border-radius:10px; cursor:pointer; }
-    .btn:hover { border-color:#3a3a3a; }
-    .table-wrap { overflow:auto; margin-top:14px; border:1px solid var(--line); border-radius:12px; }
-    table { width:100%; border-collapse:collapse; min-width:720px; }
-    thead th { position:sticky; top:0; background:#151515; color:#cde3ff; text-align:left; font-weight:700; border-bottom:1px solid var(--line); padding:10px 12px; }
-    tbody td { border-bottom:1px solid var(--line); padding:10px 12px; }
-    tbody tr:hover { background:#161616; }
-    .empty { color:var(--muted); padding:18px; }
-    .error { color:#ff6b6b; font-weight:700; }
-    footer { color:var(--muted); margin-top:18px; font-size:.9rem; text-align:right; }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="topbar">
-      <h1>ArkoRadar 3000 ULTRA</h1>
-      <div>
-        <button class="btn" id="refresh">Odśwież</button>
-      </div>
-    </div>
+<script>
+async function loadData() {
+  try {
+    $status.textContent = "Ładowanie…";
 
-    <div class="meta" id="statusLine">Ładowanie…</div>
+    // cache-busting, aby zawsze pobierać świeże dane
+    const url = API_URL + (API_URL.includes("?") ? "&" : "?") + "_=" + Date.now();
 
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Data</th>
-            <th>League</th>
-            <th>Home</th>
-            <th>Away</th>
-            <th>Typ</th>
-            <th>Prob</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody id="data-body">
-          <tr><td class="empty" colspan="7">Brak danych…</td></tr>
-        </tbody>
-      </table>
-    </div>
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
 
-    <footer id="update-time"></footer>
-  </div>
+    const data = await res.json();
+    renderTable(data);
 
-  <script>
-    // ⬇⬇⬇  TWÓJ OPUBLIKOWANY WEB APP URL z Google Apps Script
-    const API_URL = "https://script.google.com/macros/s/AKfycbw4EJ-biMC9xazHefmhkBB0sdSuAm4hyIO_Q0blUu6X_3ZocOV9wX1JYbjiVGbqfgrquA/exec";
-
-    const $body   = document.getElementById('data-body');
-    const $time   = document.getElementById('update-time');
-    const $status = document.getElementById('statusLine');
-    const $btn    = document.getElementById('refresh');
-
-    function fmtDate(v) {
-      // spróbuj sparsować datę; jeśli się nie da – zwróć oryginał
-      try {
-        const d = new Date(v);
-        if (!isNaN(d.getTime())) {
-          return d.toLocaleString('pl-PL', { hour12:false });
-        }
-        // formaty typu "2025-0905" – po prostu pokaż jak jest
-        return String(v);
-      } catch {
-        return String(v);
-      }
+    $time.textContent = "Ostatnia aktualizacja: " + new Date().toLocaleString("pl-PL");
+    $status.textContent = "";
+  } catch (err) {
+    console.error(err);
+    $status.innerHTML = `<span class="error">Błąd pobierania danych: ${err.message}</span>`;
+    if (!$body.querySelector("tr")) {
+      $body.innerHTML = `<tr><td class="empty" colspan="7">Brak danych.</td></tr>`;
     }
-
-    function fmtProb(p) {
-      if (typeof p === 'number') return p.toLocaleString('pl-PL', { minimumFractionDigits:2, maximumFractionDigits:2 });
-      const num = Number(String(p).replace(',', '.'));
-      return isNaN(num) ? String(p) : num.toLocaleString('pl-PL', { minimumFractionDigits:2, maximumFractionDigits:2 });
-    }
-
-    function renderTable(rows) {
-      if (!Array.isArray(rows) || rows.length === 0) {
-        $body.innerHTML = `<tr><td class="empty" colspan="7">Brak danych…</td></tr>`;
-        return;
-      }
-      const html = rows.map(r => `
-        <tr>
-          <td>${fmtDate(r.date)}</td>
-          <td>${r.league ?? ''}</td>
-          <td>${r.home ?? ''}</td>
-          <td>${r.away ?? ''}</td>
-          <td>${r.typ ?? ''}</td>
-          <td>${fmtProb(r.prob ?? '')}</td>
-          <td>${fmtDate(r.status ?? '')}</td>
-        </tr>
-      `).join('');
-      $body.innerHTML = html;
-    }
-
-    async function loadData() {
-      try {
-        $status.textContent = 'Ładowanie…';
-        // cache-busting, no-store i wyłączenie cache przeglądarki/CDN
-        const url = API_URL + (API_URL.includes('?') ? '&' : '?') + '_=' + Date.now();
-        const res = await fetch(url, { cache:'no-store', headers:{ 'cache-control':'no-cache' } });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        renderTable(data);
-        $time.textContent = 'Ostatnia aktualizacja: ' + new Date().toLocaleString('pl-PL', { hour12:false });
-        $status.textContent = '';
-      } catch (err) {
-        console.error(err);
-        $status.innerHTML = `<span class="error">Błąd pobierania danych: ${err.message}</span>`;
-        // nie nadpisuj tabeli, jeśli już coś było
-        if (!$body.querySelector('tr')) {
-          $body.innerHTML = `<tr><td class="empty" colspan="7">Brak danych…</td></tr>`;
-        }
-      }
-    }
-
-    // Odśwież ręcznie + auto co 5 min
-    $btn.addEventListener('click', loadData);
-    document.addEventListener('DOMContentLoaded', loadData);
-    setInterval(loadData, 5 * 60 * 1000);
-  </script>
-</body>
-</html>
+  }
+}
+</script>
