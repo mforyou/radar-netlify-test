@@ -57,8 +57,8 @@
   </div>
 
   <script>
-    // https://script.google.com/macros/s/AKfycbw4EJ-biMC9xazHefmhkBB0sdSuAm4hyIO_Q0blUu6X_3ZocOV9wX1JYbjiVGbqfgrquA/exec
-    const API_URL = "YOUR_API_URL_HERE";
+    // ✅ Twój działający URL API
+    const API_URL = "https://script.google.com/macros/s/AKfycbw4EJ-biMC9xazHefmhkBB0sdSuAm4hyIO_Q0blUu6X_3ZocOV9wX1JYbjiVGbqfgrquA/exec";
 
     const $status  = document.getElementById("status");
     const $updated = document.getElementById("updated");
@@ -67,7 +67,6 @@
     function fmtDate(v){
       if(!v) return "";
       try{
-        // akceptujemy ISO, „2025-0905” i inne — po prostu pokazujemy jak jest
         const d = new Date(v);
         if(!isNaN(d)) return d.toLocaleString("pl-PL",{hour12:false});
         return String(v);
@@ -77,7 +76,7 @@
       if(p==null) return "";
       const n = Number(p);
       if(isNaN(n)) return String(p);
-      return (n>1? n : n*100).toFixed( (n>1)? 0 : 0 ) + (n>1? "" : "%");
+      return (n>1? n : n*100).toFixed(0) + (n>1? "" : "%");
     }
 
     function renderTable(rows){
@@ -101,8 +100,6 @@
     async function loadData(){
       try{
         $status.textContent = "Ładowanie…";
-
-        // cache-bust, żeby CDN / przeglądarka nie trzymały starego JSON-a
         const url = API_URL + (API_URL.includes("?") ? "&" : "?") + "_=" + Date.now();
 
         const res = await fetch(url, { cache:"no-store" });
@@ -116,16 +113,13 @@
       }catch(err){
         console.error(err);
         $status.innerHTML = `<span class="error">Błąd pobierania danych: ${err.message}</span>`;
-        if(!$tbody.querySelector("tr")){
-          $tbody.innerHTML = `<tr><td class="empty" colspan="7">Brak danych…</td></tr>`;
-        }
+        $tbody.innerHTML = `<tr><td class="empty" colspan="7">Brak danych…</td></tr>`;
       }
     }
 
-    // start
     loadData();
-    // auto-refresh co 5 min (możesz zmienić)
     setInterval(loadData, 5*60*1000);
   </script>
 </body>
 </html>
+
