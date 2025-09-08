@@ -1,125 +1,175 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pl">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>ArkoRadar 3000 ULTRA</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
     :root{
-      --bg:#111; --card:#1b1b1b; --text:#e8e8e8; --muted:#9aa0a6;
-      --accent:#00ff66; --warn:#ff5555; --link:#66a3ff; --line:#2b2b2b;
+      --bg:#0c0f12; --panel:#131922; --txt:#d7e4f7; --muted:#8aa0b8;
+      --accent:#00ff66; --warn:#ff5757; --link:#4aa3ff; --line:#223044;
     }
-    html,body{margin:0; padding:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    html,body{height:100%}
+    body{margin:0;background:radial-gradient(1200px 700px at 60% 30%, #101722, #0b1016 65%, #080b10);
+         color:var(--txt); font:16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif}
     .wrap{max-width:1100px; margin:28px auto; padding:0 16px}
-    h1{margin:0 0 8px; font-size:32px; color:var(--accent); letter-spacing:.5px}
-    .status{min-height:22px; margin:6px 0 14px; font-weight:600}
-    .status .error{color:var(--warn)}
-    .status .ok{color:#6ee7b7}
-    .updated{font-size:12px; color:var(--muted); margin-bottom:14px}
-    .card{background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden}
-    table{width:100%; border-collapse:collapse}
-    th,td{padding:12px 14px; text-align:left}
-    thead th{color:#c7d2fe; background:#121212; border-bottom:1px solid var(--line); font-weight:700}
-    tbody tr{border-bottom:1px solid var(--line)}
-    tbody tr:hover{background:#161616}
-    td.empty{color:var(--muted); text-align:center; padding:28px}
+    h1{margin:0 0 6px; font-size:34px; letter-spacing:.5px; color:var(--accent)}
+    .status{margin:4px 0 18px; font-size:14px; color:var(--muted)}
+    .status .err{color:var(--warn); font-weight:600}
+    .bar{display:flex; gap:10px; align-items:center; margin:0 0 8px}
+    .btn{background:#1b2533; color:#e8f1ff; border:1px solid #2a3a52; padding:8px 12px; border-radius:8px;
+         cursor:pointer; font-weight:600}
+    .btn:hover{filter:brightness(1.1)}
+    .pill{color:#b6c9df; font-size:12px; border:1px solid #30435c; padding:4px 8px; border-radius:999px}
+    table{width:100%; border-collapse:collapse; background:var(--panel); border:1px solid var(--line);
+          border-radius:12px; overflow:hidden}
+    th,td{padding:12px 14px; border-bottom:1px solid var(--line)}
+    th{color:#9ec3ff; font-weight:700; text-align:left; letter-spacing:.3px; background:#121922}
+    tbody tr:last-child td{border-bottom:none}
+    .right{text-align:right}
+    .empty{padding:18px 14px; color:#8aa0b8}
     a{color:var(--link); text-decoration:none}
-    .foot{color:var(--muted); font-size:12px; margin-top:14px}
+    footer{margin-top:14px; color:#6c829b; font-size:12px}
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>ArkoRadar 3000 ULTRA</h1>
 
-    <div id="status" class="status"></div>
-    <div id="updated" class="updated"></div>
-
-    <div class="card">
-      <table>
-        <thead>
-          <tr>
-            <th>Data</th>
-            <th>League</th>
-            <th>Home</th>
-            <th>Away</th>
-            <th>Typ</th>
-            <th>Prob</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody id="tbody">
-          <tr><td class="empty" colspan="7">Ładowanie…</td></tr>
-        </tbody>
-      </table>
+    <div class="bar">
+      <button id="refresh" class="btn">🔄 Odśwież</button>
+      <span class="pill">Widok: <b>dzisiaj</b> • sort: <b>Prob ↓</b></span>
     </div>
 
-    <div class="foot">© ArkoRadar</div>
+    <div id="status" class="status">Ładowanie…</div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>League</th>
+          <th>Home</th>
+          <th>Away</th>
+          <th>Typ</th>
+          <th class="right">Prob</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        <tr><td colspan="7" class="empty">Brak danych…</td></tr>
+      </tbody>
+    </table>
+
+    <footer>© ArkoRadar</footer>
   </div>
 
   <script>
-    // ✅ Twój działający URL API
-    const API_URL = "https://script.google.com/macros/s/AKfycbw4EJ-biMC9xazHefmhkBB0sdSuAm4hyIO_Q0blUu6X_3ZocOV9wX1JYbjiVGbqfgrquA/exec";
+    // ✅ Twój działający URL Apps Script (WEB APP)
+/* eslint-disable */
+    const API_URL = "https://script.google.com/macros/s/AKfycbxR4eTs4l9c_0MfCLGmQf9VdCdSTe9T2dF3BMQI4AMUyldMiRfCFRW0wJJELhpQzwfbRw/exec";
+/* eslint-enable */
 
-    const $status  = document.getElementById("status");
-    const $updated = document.getElementById("updated");
-    const $tbody   = document.getElementById("tbody");
+    // -- narzędzia daty --
+    const todayRange = () => {
+      const now = new Date();
+      const y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
+      const start = new Date(y, m, d, 0,0,0,0);
+      const end   = new Date(y, m, d, 23,59,59,999);
+      return [start.getTime(), end.getTime()];
+    };
 
-    function fmtDate(v){
-      if(!v) return "";
-      try{
-        const d = new Date(v);
-        if(!isNaN(d)) return d.toLocaleString("pl-PL",{hour12:false});
-        return String(v);
-      }catch(_){ return String(v) }
+    function parseWhen(v){
+      // ISO lub Date albo skrót „2025-0905”
+      if (v instanceof Date) return v.getTime();
+      if (typeof v === 'number') return v;
+      const s = String(v || '').trim();
+      // 2025-0905 -> 2025-09-05
+      const m = s.match(/^(\d{4})-?(\d{2})-?(\d{2})$/);
+      if (m) return new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00Z`).getTime();
+      const t = Date.parse(s);
+      return isNaN(t) ? NaN : t;
     }
-    function fmtProb(p){
-      if(p==null) return "";
-      const n = Number(p);
-      if(isNaN(n)) return String(p);
-      return (n>1? n : n*100).toFixed(0) + (n>1? "" : "%");
-    }
 
+    const fmtDate = (v) => {
+      const t = parseWhen(v);
+      if (isNaN(t)) return String(v ?? '');
+      return new Date(t).toLocaleString('pl-PL', { hour12:false });
+    };
+    const fmtProb = (p) => {
+      if (p == null || p === '') return '';
+      const num = typeof p === 'number' ? p : parseFloat(String(p).replace(',', '.'));
+      if (!isFinite(num)) return '';
+      // jeśli w danych 0.82 to 82%, jeśli 82 to 82%
+      const val = num <= 1 ? num * 100 : num;
+      return `${Math.round(val)}%`;
+    };
+
+    // -- render --
     function renderTable(rows){
-      if(!Array.isArray(rows) || rows.length===0){
-        $tbody.innerHTML = `<tr><td class="empty" colspan="7">Brak danych…</td></tr>`;
+      const tb = document.getElementById('tbody');
+      if (!rows.length){
+        tb.innerHTML = `<tr><td colspan="7" class="empty">Brak danych…</td></tr>`;
         return;
       }
-      $tbody.innerHTML = rows.map(r=>`
+      tb.innerHTML = rows.map(r => `
         <tr>
           <td>${fmtDate(r.date)}</td>
-          <td>${r.league ?? ""}</td>
-          <td>${r.home ?? ""}</td>
-          <td>${r.away ?? ""}</td>
-          <td>${r.typ ?? ""}</td>
-          <td>${fmtProb(r.prob)}</td>
+          <td>${r.league ?? ''}</td>
+          <td>${r.home ?? ''}</td>
+          <td>${r.away ?? ''}</td>
+          <td>${r.typ ?? ''}</td>
+          <td class="right">${fmtProb(r.prob)}</td>
           <td>${fmtDate(r.status)}</td>
         </tr>
-      `).join("");
+      `).join('');
     }
 
+    // -- główne ładowanie z filtrami (DZISIAJ + sort Prob ↓) --
     async function loadData(){
+      const status = document.getElementById('status');
       try{
-        $status.textContent = "Ładowanie…";
-        const url = API_URL + (API_URL.includes("?") ? "&" : "?") + "_=" + Date.now();
+        status.textContent = 'Ładowanie…';
+        const url = API_URL + (API_URL.includes('?') ? '&' : '?') + '_=' + Date.now();
+        const res = await fetch(url, { cache:'no-store', headers:{ 'cache-control':'no-cache' }});
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const raw = await res.json();
 
-        const res = await fetch(url, { cache:"no-store" });
-        if(!res.ok) throw new Error("HTTP " + res.status);
+        // Sanitizacja pól + filtr „DZISIAJ”
+        const [start, end] = todayRange();
+        const normalized = (raw || []).map(x => ({
+          date:   x.date,
+          league: x.league,
+          home:   x.home,
+          away:   x.away,
+          typ:    x.typ,
+          prob:   x.prob,
+          status: x.status ?? x.updated ?? x.lastupdate ?? x.data
+        })).filter(r => {
+          const t = parseWhen(r.date);
+          return !isNaN(t) && t >= start && t <= end;
+        });
 
-        const data = await res.json();
-        renderTable(data);
+        // sort po Prob malejąco
+        normalized.sort((a,b) => {
+          const pa = parseFloat(String(a.prob ?? '').toString().replace(',', '.'));
+          const pb = parseFloat(String(b.prob ?? '').toString().replace(',', '.'));
+          const va = isFinite(pa) ? (pa <= 1 ? pa*100 : pa) : -1;
+          const vb = isFinite(pb) ? (pb <= 1 ? pb*100 : pb) : -1;
+          return vb - va;
+        });
 
-        $updated.textContent = "Ostatnia aktualizacja: " + new Date().toLocaleString("pl-PL",{hour12:false});
-        $status.innerHTML = `<span class="ok">OK</span>`;
+        renderTable(normalized);
+        status.textContent = 'OK  •  Ostatnia aktualizacja: ' + new Date().toLocaleString('pl-PL', { hour12:false });
       }catch(err){
         console.error(err);
-        $status.innerHTML = `<span class="error">Błąd pobierania danych: ${err.message}</span>`;
-        $tbody.innerHTML = `<tr><td class="empty" colspan="7">Brak danych…</td></tr>`;
+        status.innerHTML = `<span class="err">Błąd pobierania danych: ${err.message}</span>`;
       }
     }
 
+    // auto-refresh co 5 minut + przycisk
+    document.getElementById('refresh').addEventListener('click', loadData);
     loadData();
     setInterval(loadData, 5*60*1000);
   </script>
 </body>
 </html>
-
