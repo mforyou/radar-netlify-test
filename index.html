@@ -1,154 +1,180 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8">
-  <title>ArkoRadar 3000 ULTRA</title>
-  <style>
-    body {
-      background: linear-gradient(180deg, #111 0%, #222 100%);
-      font-family: Arial, sans-serif;
-      color: #ddd;
-      margin: 0;
-      padding: 20px;
-    }
-    h1 {
-      color: limegreen;
-      text-align: center;
-      margin-bottom: 10px;
-    }
-    .controls {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-    button {
-      padding: 8px 16px;
-      border: none;
-      border-radius: 5px;
-      background: #1e90ff;
-      color: white;
-      cursor: pointer;
-      margin-right: 10px;
-    }
-    button:hover {
-      background: #4682b4;
-    }
-    .status {
-      display: inline-block;
-      margin-left: 15px;
-      font-weight: bold;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-    }
-    th, td {
-      padding: 8px;
-      text-align: center;
-    }
-    th {
-      background: #333;
-      color: cyan;
-    }
-    tr:nth-child(even) {
-      background: #2a2a2a;
-    }
-    .empty {
-      text-align: center;
-      color: #888;
-      font-style: italic;
-    }
-    footer {
-      margin-top: 25px;
-      text-align: center;
-      font-size: 0.8em;
-      color: #666;
-    }
-    .error {
-      color: #ff5a5a;
-      text-align: center;
-      font-weight: bold;
-      margin-bottom: 10px;
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ArkoRadar 3000 ULTRA — tabela</title>
+<style>
+  :root{
+    --bg:#0f1b2b;--card:#14263a;--line:#1f344d;--text:#e8f0f2;
+    --muted:#9fb7c7;--accent:#38d25a;--warn:#ff6b6b;--btn:#1e3a5f;--btn-b:#345a84;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial}
+  .wrap{max-width:1100px;margin:24px auto;padding:0 16px}
+  h1{margin:0 0 10px;color:var(--accent);letter-spacing:.5px}
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:6px 0 12px}
+  button{background:var(--btn);border:1px solid var(--btn-b);color:#cfe9ff;border-radius:10px;padding:8px 14px;cursor:pointer}
+  button:hover{background:#24486f}
+  .pill{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 10px}
+  .muted{color:var(--muted)}
+  .status{min-height:22px;margin:8px 0 12px}
+  .status.err{color:var(--warn)}
+  table{width:100%;border-collapse:separate;border-spacing:0;background:rgba(18,32,50,.82);
+         border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left}
+  th{background:#13263a;color:#8bd3ff;font-weight:600}
+  tr:last-child td{border-bottom:0}
+  .right{text-align:right}
+</style>
 </head>
 <body>
+<div class="wrap">
   <h1>ArkoRadar 3000 ULTRA</h1>
 
-  <div class="controls">
-    <button onclick="loadData()">🔄 Odśwież</button>
-    <span class="status" id="status">...</span>
+  <div class="toolbar">
+    <button id="btn-refresh">Odśwież</button>
+    <span class="pill">
+      <label>
+        <input type="checkbox" id="only-today" checked>
+        Widok: dziś
+      </label>
+    </span>
+    <span class="pill">
+      sort:
+      <button id="btn-sort" type="button" title="Zmień sortowanie">Prob ↓</button>
+    </span>
+    <span id="last" class="muted"></span>
   </div>
 
-  <div id="errorBox" class="error" style="display:none"></div>
+  <div id="status" class="status"></div>
 
   <table>
     <thead>
       <tr>
-        <th>Data</th>
-        <th>League</th>
+        <th style="width:160px">Data</th>
+        <th style="width:120px">League</th>
         <th>Home</th>
         <th>Away</th>
-        <th>Typ</th>
-        <th>Prob</th>
-        <th>Status</th>
+        <th style="width:80px">Typ</th>
+        <th style="width:80px" class="right">Prob</th>
+        <th style="width:200px">Status</th>
       </tr>
     </thead>
     <tbody id="tbody">
-      <tr><td class="empty" colspan="7">Brak danych...</td></tr>
+      <tr><td colspan="7" class="muted">Ładowanie…</td></tr>
     </tbody>
   </table>
 
-  <footer>© ArkoRadar</footer>
+  <p class="muted" style="margin-top:10px">© ArkoRadar</p>
+</div>
 
 <script>
-  // 👉 Wklej tutaj swój adres z Apps Script (zakończony na /exec)
+  // 👇 WSTAW TU SWÓJ DZIAŁAJĄCY LINK /exec z Apps Script
   const API_URL = "https://script.google.com/macros/s/AKfycbwRqhKR8F6w6JrRuGijUZ7LCLfwTalqJJemRH1_OSa8kvfI3I7lQ5YyA0YFXLA4wQ8Ttg/exec";
 
-  async function loadData() {
-    const statusEl = document.getElementById("status");
-    const errorBox = document.getElementById("errorBox");
-    statusEl.textContent = "Ładowanie...";
-    errorBox.style.display = "none";
+  const $tbody  = document.getElementById('tbody');
+  const $status = document.getElementById('status');
+  const $last   = document.getElementById('last');
+  const $onlyToday = document.getElementById('only-today');
+  const $btnSort   = document.getElementById('btn-sort');
 
-    try {
-      const url = API_URL + (API_URL.includes("?") ? "&" : "?") + "_=" + Date.now();
-      const res = await fetch(url, { cache: "no-store", mode: "cors" });
+  let sortProbDesc = true; // Prob ↓ na start
+  $btnSort.addEventListener('click', () => {
+    sortProbDesc = !sortProbDesc;
+    $btnSort.textContent = 'Prob ' + (sortProbDesc ? '↓' : '↑');
+    render(); // tylko prze-sortuj
+  });
 
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      const data = await res.json();
+  document.getElementById('btn-refresh').addEventListener('click', load);
+  $onlyToday.addEventListener('change', render);
 
-      renderTable(Array.isArray(data) ? data : []);
-      statusEl.textContent = "OK";
-    } catch (err) {
-      console.error(err);
-      statusEl.textContent = "Błąd!";
-      errorBox.style.display = "block";
-      errorBox.textContent = "Błąd pobierania danych: " + err.message;
-      renderTable([]);
+  let cached = [];
+
+  function toDate(v){
+    if (!v) return null;
+    const s = String(v).trim();
+    // "2025-0905" czy "2025-09-05 18:00" itp.
+    if (/^\d{4}-\d{2}\d{2}$/.test(s)) {
+      // np. 2025-0905 -> wstaw myślnik
+      return new Date(s.slice(0,5) + s.slice(5,7) + '-' + s.slice(7));
     }
+    const d = new Date(s);
+    return isNaN(d) ? null : d;
+  }
+  function fmtDate(v){
+    const d = toDate(v);
+    return d ? d.toLocaleString('pl-PL',{hour12:false}) : (v ?? '');
+  }
+  function toProb(v){
+    if (v===null || v===undefined || v==='') return null;
+    const n = parseFloat(String(v).replace(',', '.'));
+    return isNaN(n) ? null : (n<=1.001 ? n*100 : n); // akceptuj 0.82 lub 82
+  }
+  function fmtProb(v){
+    const n = toProb(v);
+    return n===null ? '' : Math.round(n) + '%';
+  }
+  function isToday(d){
+    const x = toDate(d);
+    if (!x) return false;
+    const now = new Date();
+    return x.getFullYear()===now.getFullYear()
+        && x.getMonth()===now.getMonth()
+        && x.getDate()===now.getDate();
   }
 
-  function renderTable(rows) {
-    const tbody = document.getElementById("tbody");
-    if (!rows.length) {
-      tbody.innerHTML = `<tr><td class="empty" colspan="7">Brak danych...</td></tr>`;
+  function render(){
+    let rows = Array.isArray(cached) ? [...cached] : [];
+    if ($onlyToday.checked) rows = rows.filter(r => isToday(r.date));
+
+    rows.sort((a,b)=>{
+      const ap = toProb(a.prob) ?? -999, bp = toProb(b.prob) ?? -999;
+      return sortProbDesc ? (bp - ap) : (ap - bp);
+    });
+
+    if (rows.length===0){
+      $tbody.innerHTML = '<tr><td colspan="7" class="muted">Brak danych…</td></tr>';
       return;
     }
-    tbody.innerHTML = rows.map(r => `
+
+    const html = rows.map(r=>`
       <tr>
-        <td>${r.date ?? ""}</td>
-        <td>${r.league ?? ""}</td>
-        <td>${r.home ?? ""}</td>
-        <td>${r.away ?? ""}</td>
-        <td>${r.typ ?? ""}</td>
-        <td>${typeof r.prob === "number" ? Math.round(r.prob * 100) + "%" : (r.prob ?? "")}</td>
-        <td>${r.status ? new Date(r.status).toLocaleString("pl-PL") : ""}</td>
+        <td>${fmtDate(r.date)}</td>
+        <td>${r.league ?? ''}</td>
+        <td>${r.home ?? ''}</td>
+        <td>${r.away ?? ''}</td>
+        <td>${r.typ ?? ''}</td>
+        <td class="right">${fmtProb(r.prob)}</td>
+        <td>${fmtDate(r.status) || (r.status ?? '')}</td>
       </tr>
-    `).join("");
+    `).join('');
+    $tbody.innerHTML = html;
   }
 
-  document.addEventListener("DOMContentLoaded", loadData);
+  async function load(){
+    $status.className = 'status';
+    $status.textContent = '';
+    $tbody.innerHTML = '<tr><td colspan="7" class="muted">Ładowanie…</td></tr>';
+    try{
+      const url = API_URL + (API_URL.includes('?') ? '&' : '?') + 't=' + Date.now();
+      const res = await fetch(url, { cache:'no-store', headers:{'cache-control':'no-cache'} });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (!Array.isArray(data)) throw new Error('Złe dane (nie tablica).');
+
+      cached = data;
+      render();
+      $last.textContent = 'Ostatnia aktualizacja: ' + new Date().toLocaleString('pl-PL',{hour12:false});
+    }catch(err){
+      console.error(err);
+      $status.className = 'status err';
+      $status.textContent = 'Błąd pobierania danych: ' + err.message;
+      $tbody.innerHTML = '<tr><td colspan="7" class="muted">Brak danych…</td></tr>';
+    }
+  }
+
+  load();
 </script>
 </body>
 </html>
