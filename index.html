@@ -2,36 +2,51 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>ArkoRadar 3000 ULTRA</title>
   <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu; background:#0c1622; color:#e6f1ff; margin:0}
-    .wrap{max-width:1100px; margin:24px auto; padding:0 12px}
-    h1{color:#35e06f; margin:0 0 10px}
-    .bar{display:flex; gap:10px; align-items:center; margin:8px 0 14px}
-    .btn{background:#123; color:#e6f1ff; border:1px solid #2b3e55; padding:6px 10px; border-radius:8px; cursor:pointer}
-    .btn:disabled{opacity:.6; cursor:default}
-    .note{opacity:.8; font-size:13px}
-    .err{color:#ff6b6b; font-weight:600}
-    table{width:100%; border-collapse:collapse; background:rgba(255,255,255,.04); border-radius:10px; overflow:hidden}
-    th,td{padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.07)}
-    th{text-align:left; color:#7fc8ff; letter-spacing:.2px; font-weight:600}
-    tr:hover td{background:rgba(255,255,255,.03)}
-    .right{text-align:right}
-    .muted{opacity:.7}
-    .badge{display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid #2b3e55}
-    .ok{color:#36e072}
+    :root{
+      --bg:#0d1b2a; --panel:#13293d; --line:#1f3b57; --txt:#cfe8ff; --muted:#89a6c5;
+      --ok:#19c37d; --err:#ff6b6b; --link:#5ec2ff;
+    }
+    html,body{margin:0;height:100%;background:linear-gradient(#0d1b2a,#0b2639);color:var(--txt);font:16px/1.45 system-ui,Segoe UI,Roboto,Arial}
+    .wrap{max-width:1100px;margin:32px auto;padding:0 16px}
+    h1{margin:0 0 12px;font-size:32px;color:#38e263;letter-spacing:.5px}
+    .bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:8px 0 18px}
+    .btn{background:#1b3550;border:1px solid var(--line);color:var(--txt);padding:8px 12px;border-radius:10px;cursor:pointer}
+    .btn:hover{filter:brightness(1.1)}
+    .chip{background:#162a40;border:1px solid var(--line);padding:6px 10px;border-radius:999px;font-size:14px}
+    .select{background:#162a40;border:1px solid var(--line);color:var(--txt);padding:6px 10px;border-radius:8px}
+    .status{min-height:22px;margin:6px 0 14px;font-weight:600}
+    .status.ok{color:var(--ok)} .status.err{color:var(--err)} .status.muted{color:var(--muted)}
+    table{width:100%;border-collapse:separate;border-spacing:0;background:rgba(19,41,61,.6);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+    th,td{padding:12px 14px;border-bottom:1px solid var(--line)}
+    th{color:#8fd1ff;text-align:left;background:rgba(19,41,61,.8);position:sticky;top:0}
+    tr:last-child td{border-bottom:0}
+    .empty{color:var(--muted);padding:18px}
+    footer{margin-top:18px;color:var(--muted);font-size:14px}
+    a{color:var(--link);text-decoration:none}
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>ArkoRadar 3000 ULTRA</h1>
+
     <div class="bar">
-      <button id="btn" class="btn">Odśwież</button>
-      <label><input type="checkbox" id="onlyToday" checked> Widok: dziś</label>
-      <span class="note">sort: <strong>Prob ↓</strong></span>
+      <button id="btn-refresh" class="btn">🔄 Odśwież</button>
+      <label class="chip"><input id="only-today" type="checkbox" checked> Widok dziś</label>
+      <label class="chip">sort:
+        <select id="sort" class="select">
+          <option value="prob_desc">Prob ↓</option>
+          <option value="prob_asc">Prob ↑</option>
+          <option value="date_asc">Data ↑</option>
+          <option value="date_desc">Data ↓</option>
+        </select>
+      </label>
+      <span id="last" class="chip"></span>
     </div>
-    <div id="status" class="note muted">—</div>
+
+    <div id="status" class="status muted">Ładowanie…</div>
 
     <table>
       <thead>
@@ -41,90 +56,147 @@
           <th>Home</th>
           <th>Away</th>
           <th>Typ</th>
-          <th class="right">Prob</th>
+          <th>Prob</th>
           <th>Status</th>
         </tr>
       </thead>
       <tbody id="tbody">
-        <tr><td colspan="7" class="muted">ładowanie…</td></tr>
+        <tr><td class="empty" colspan="7">Brak danych…</td></tr>
       </tbody>
     </table>
 
-    <p class="muted" style="margin-top:10px">© ArkoRadar</p>
+    <footer>© ArkoRadar</footer>
   </div>
 
   <script>
-    // ⬇⬇ WSTAW TU SWÓJ DZIAŁAJĄCY LINK /exec z Apps Script:
-    const API_URL = "https://script.google.com/macros/s/AKfycbyC6uffHY5qu-XqKBt-tC01Fh_QNiRiiDrpKKioa8SXW2jiEBJdeEx2ez3t1vcJnkeblw/exec";
+    // 👉 STAŁY URL Twojej Web App (Apps Script) – TYLKO taki, z /exec
+    const API_URL = "https://script.google.com/macros/s/AKfycbYC6uffHY5qu-XqKBt-tC01Fh_QNiRiiDrpKKioa8SXW2jiEBJdeEx2ez3t1vcJnkeIbw/exec";
 
-    const $ = s => document.querySelector(s);
-    const tbody = $('#tbody');
-    const statusEl = $('#status');
-    const btn = $('#btn');
-    const onlyToday = $('#onlyToday');
+    // elementy UI
+    const $ = sel => document.querySelector(sel);
+    const $body   = $("#tbody");
+    const $status = $("#status");
+    const $last   = $("#last");
+    const $btn    = $("#btn-refresh");
+    const $only   = $("#only-today");
+    const $sort   = $("#sort");
 
-    btn.addEventListener('click', load);
-    onlyToday.addEventListener('change', render);
+    let rows = [];
 
-    let raw = [];
-
-    function fmtDate(s){
-      if(!s) return '';
+    // ---- helpers ----
+    const toDate = (x) => {
+      if (x == null || x === '') return null;
+      // obsługa formatów: '2025-0905', '5.09.2025 18:00', ISO, itp.
+      if (typeof x === 'number') return new Date(x);           // serial z Arkusza
+      const s = String(x).trim();
+      // 2025-0905 -> 2025-09-05
+      const m = /^(\d{4})-?(\d{2})(\d{2})$/.exec(s);
+      if (m) return new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00`);
+      // dd.mm.rrrr hh:mm
+      const m2 = /^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:[ T](\d{1,2}):(\d{2}))?$/.exec(s);
+      if (m2) {
+        const [_, d, mo, y, hh='00', mm='00'] = m2;
+        return new Date(+y, +mo-1, +d, +hh, +mm);
+      }
+      // ISO / inne
       const d = new Date(s);
-      return d.toLocaleString('pl-PL', {hour12:false});
-    }
-    function pct(x){
-      if (x==null || x==='') return '';
-      const v = (typeof x==='number') ? x : Number(String(x).replace('%',''))/100;
-      return Math.round((v>1? v/100 : v)*100)+'%';
-    }
-    function isToday(s){
-      const d = new Date(s), n = new Date();
-      return d.toDateString() === n.toDateString();
+      return isNaN(d) ? null : d;
+    };
+    const fmtDate = (d) => d ? d.toLocaleString('pl-PL', {hour12:false}) : '';
+
+    const probToPct = (p) => {
+      if (p == null || p === '') return '';
+      const n = typeof p === 'string' ? parseFloat(p.toString().replace(',', '.')) : +p;
+      if (isNaN(n)) return '';
+      return Math.round(n * (n<=1 ? 100 : 1)) + '%';
+    };
+
+    function sortRows(list, mode){
+      const by = {
+        prob_desc: (a,b)=> (b.prob ?? 0) - (a.prob ?? 0),
+        prob_asc:  (a,b)=> (a.prob ?? 0) - (b.prob ?? 0),
+        date_asc:  (a,b)=> (a._d?.getTime() ?? 0) - (b._d?.getTime() ?? 0),
+        date_desc: (a,b)=> (b._d?.getTime() ?? 0) - (a._d?.getTime() ?? 0),
+      }[mode] || ((a,b)=>0);
+      return [...list].sort(by);
     }
 
+    // ---- render ----
     function render(){
-      let data = [...raw];
-      if(onlyToday.checked) data = data.filter(r => r.date && isToday(r.date));
-      data.sort((a,b) => (b.prob||0) - (a.prob||0));
+      let list = rows;
 
-      if(!data.length){
-        tbody.innerHTML = '<tr><td colspan="7" class="muted">Brak danych…</td></tr>';
+      if ($only.checked){
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        const next = new Date(today); next.setDate(today.getDate()+1);
+        list = list.filter(r => r._d && r._d >= today && r._d < next);
+      }
+
+      list = sortRows(list, $sort.value);
+
+      if (!list.length){
+        $body.innerHTML = `<tr><td class="empty" colspan="7">Brak danych…</td></tr>`;
         return;
       }
-      tbody.innerHTML = data.map(r => `
+
+      $body.innerHTML = list.map(r => `
         <tr>
-          <td>${fmtDate(r.date)}</td>
-          <td>${r.league||''}</td>
-          <td>${r.home||''}</td>
-          <td>${r.away||''}</td>
-          <td>${r.typ||''}</td>
-          <td class="right">${pct(r.prob)}</td>
-          <td>${r.status||''}</td>
+          <td>${fmtDate(r._d) || (r.date ?? '')}</td>
+          <td>${r.league ?? ''}</td>
+          <td>${r.home ?? ''}</td>
+          <td>${r.away ?? ''}</td>
+          <td>${r.typ ?? r.type ?? ''}</td>
+          <td>${probToPct(r.prob)}</td>
+          <td>${r.status ?? ''}</td>
         </tr>
       `).join('');
     }
 
+    // ---- fetch + normalizacja ----
     async function load(){
-      btn.disabled = true;
-      statusEl.textContent = 'Ładowanie…';
-
       try{
-        const url = API_URL + (API_URL.includes('?')?'&':'?') + 't=' + Date.now();
-        const res = await fetch(url, { cache:'no-store' });
-        if(!res.ok) throw new Error('HTTP '+res.status);
-        raw = await res.json();
-        statusEl.innerHTML = '<span class="ok badge">OK</span> '+
-          new Date().toLocaleString('pl-PL',{hour12:false});
+        $status.className = "status muted";
+        $status.textContent = "Ładowanie…";
+
+        const antiCache = (API_URL.includes('?') ? '&' : '?') + '_=' + Date.now();
+        const res = await fetch(API_URL + antiCache, { cache: 'no-store' });
+
+        if (!res.ok){
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        const payload = await res.json();
+
+        // jeśli Apps Script zwrócił obiekt błędu – pokaż go ładnie
+        if (payload && typeof payload === 'object' && !Array.isArray(payload) && payload.error){
+          throw new Error(payload.message || 'Błąd API');
+        }
+
+        // Oczekujemy tablicy obiektów {date, league, home, away, typ/type, prob, status}
+        const data = Array.isArray(payload) ? payload : [];
+        rows = data.map(r => ({
+          ...r,
+          _d: toDate(r.date)
+        }));
+
+        $status.className = "status ok";
+        $status.textContent = "OK";
+        $last.textContent = "Ostatnia aktualizacja: " + new Date().toLocaleString('pl-PL', {hour12:false});
+
         render();
       }catch(err){
-        statusEl.innerHTML = '<span class="err">Błąd pobierania danych: '+err.message+'</span>';
-        tbody.innerHTML = '<tr><td colspan="7" class="muted">Brak danych…</td></tr>';
-      }finally{
-        btn.disabled = false;
+        console.error(err);
+        $status.className = "status err";
+        $status.textContent = "Błąd pobierania danych: " + (err.message || err);
+        rows = [];
+        render();
       }
     }
 
+    // init
+    $btn.addEventListener('click', load);
+    $only.addEventListener('change', render);
+    $sort.addEventListener('change', render);
     load();
   </script>
 </body>
