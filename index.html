@@ -1,9 +1,90 @@
-export const SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQkw5qg7HlUQVTI_yz_nkuR9ZITcUneNH-nZa7YMFeeKBY-R8jpr2eoeCxK9_ci45e4C58qykmu9qLw/pub?gid=986609616&single=true&output=csv";
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ArkoRadar 3000 ULTRA</title>
 
-export const CONFIG = {
-  defaultSort: "Prob",     // sortowanie po prawdopodobieństwie
-  defaultView: "today",    // widok tylko na dzisiaj
-  refreshInterval: 60      // odświeżanie co 60 minut
-};
+  <!-- style.css jeśli masz -->
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div id="app">
+    <h1>ArkoRadar 3000 ULTRA</h1>
+    <button id="refresh">Odśwież</button>
+    <button id="todayView">Widok dziś</button>
+    <select id="sort">
+      <option value="Prob">Sortuj wg prawdopodobieństwa</option>
+      <option value="Date">Sortuj wg daty</option>
+    </select>
 
+    <table id="matches">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Time</th>
+          <th>League</th>
+          <th>Home</th>
+          <th>Away</th>
+          <th>Tip</th>
+          <th>Prob</th>
+          <th>Odds</th>
+          <th>Tag</th>
+        </tr>
+      </thead>
+      <tbody id="data-body">
+        <tr><td colspan="9">Ładowanie danych...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- najpierw konfiguracja -->
+  <script type="module" src="./config.js"></script>
+
+  <!-- potem główny skrypt -->
+  <script type="module">
+    import { SHEET_URL, CONFIG } from "./config.js";
+
+    async function loadData() {
+      const tableBody = document.getElementById("data-body");
+      tableBody.innerHTML = "<tr><td colspan='9'>Ładowanie...</td></tr>";
+
+      try {
+        const res = await fetch(SHEET_URL);
+        const text = await res.text();
+
+        const rows = text.trim().split("\n").map(r => r.split(","));
+        const data = rows.slice(1); // pomijamy nagłówki
+
+        if (!data.length) {
+          tableBody.innerHTML = "<tr><td colspan='9'>Brak danych...</td></tr>";
+          return;
+        }
+
+        tableBody.innerHTML = "";
+        data.forEach(r => {
+          const tr = document.createElement("tr");
+          r.forEach(c => {
+            const td = document.createElement("td");
+            td.textContent = c;
+            tr.appendChild(td);
+          });
+          tableBody.appendChild(tr);
+        });
+
+      } catch (err) {
+        console.error(err);
+        tableBody.innerHTML = "<tr><td colspan='9'>Błąd pobierania danych</td></tr>";
+      }
+    }
+
+    document.getElementById("refresh").addEventListener("click", loadData);
+
+    // auto-odświeżanie co X minut
+    setInterval(loadData, CONFIG.refreshInterval * 60 * 1000);
+
+    // pierwszy start
+    loadData();
+  </script>
+</body>
+</html>
